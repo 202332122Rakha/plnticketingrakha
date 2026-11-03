@@ -1,0 +1,85 @@
+PLN TICKETING - POSTGRESQL + LARAGON
+Paket 1.2.0 / 2 November 2026
+
+CARA PALING MUDAH
+1. Ekstrak seluruh ZIP ke folder baru. Jangan menimpa proyek lama.
+   Contoh: C:\laragon\projects\PLN_Ticketing_PostgreSQL_Laragon
+   JANGAN taruh di C:\laragon\www: folder sumber mengandung file rahasia .env.
+2. Pastikan Laragon menyediakan Node.js >=22.12.0 + npm.
+   Laragon > Tools > Quick add > Node.js, bila belum tersedia.
+   Untuk database DI SERVER, MySQL/Apache/phpMyAdmin tidak diperlukan.
+3. Hubungkan jaringan/VPN kantor. Pastikan SSH ke 10.10.23.26 tersedia.
+4. Minta DBA menyiapkan PostgreSQL, database aplikasi dan akun PostgreSQL.
+   Contoh database: pln_ticketing; contoh akun: ticketing_app.
+   webadmin2 adalah akun SSH, bukan otomatis akun PostgreSQL.
+5. Klik dua kali MULAI-PLN-TICKETING.bat.
+
+APA YANG AKAN TERJADI PADA PEMAKAIAN PERTAMA?
+- Node.js dicari di Laragon atau PATH; dependensi dipasang melalui npm.
+- Sintaks PowerShell, helper koneksi, kode, tes, dan build diperiksa di Windows Anda.
+- Isi konfigurasi melalui pertanyaan pada terminal, bukan mengedit source code.
+- Pilih Tunnel untuk server 10.10.23.26. Default yang dapat dikonfirmasi dengan Enter:
+    Server SSH       10.10.23.26
+    Akun SSH         webadmin2
+    Port SSH         22 (ganti bila IT menggunakan port lain)
+    Host PostgreSQL  127.0.0.1 DARI server SSH, bila PostgreSQL satu server
+    Port PostgreSQL  5432 (ganti sesuai DBA)
+    Port tunnel      15432 pada laptop
+    Port aplikasi    4000 pada laptop
+- Isi nama database, akun PostgreSQL dan password dari DBA.
+- TLS PostgreSQL: default N untuk tunnel SSH, Y untuk koneksi Direct.
+  Bila DBA mewajibkan TLS, pilih Y dan isi CA/nama sertifikat sesuai IT.
+- Jendela SSH terbuka otomatis. Verifikasi fingerprint dengan IT, lalu isi password SSH.
+  Jangan abaikan peringatan fingerprint berubah.
+- Periksa ringkasan database. Ketik SIAPKAN untuk memberi izin migrasi/master awal.
+- Buat admin aplikasi pertama. Tidak ada username/password demo siap pakai.
+- Launcher memeriksa skema, admin, hak akses, baca/tulis PostgreSQL pada tabel sementara.
+- Setelah semuanya lulus, browser dibuka: http://127.0.0.1:4000
+  Jika memilih port lain, ikuti alamat yang ditampilkan terminal.
+
+PEMAKAIAN BERIKUTNYA
+Cukup klik MULAI-PLN-TICKETING.bat lagi. Konfigurasi database tersimpan lokal.
+Password SSH tetap dimasukkan saat diminta, kecuali memakai key/agent yang disiapkan IT.
+Biarkan jendela PowerShell dan SSH terbuka. Tekan Ctrl+C untuk berhenti.
+Launcher hanya menghentikan proses miliknya sendiri, tidak mematikan Laragon/server lain.
+Tidak ada migrasi/seed pada start biasa bila konfigurasi/setup sebelumnya masih lengkap.
+
+MELALUI POWERSHELL (SETARA DENGAN KLIK BAT)
+Jalankan dari folder aplikasi, satu perintah per baris:
+
+cd "C:\laragon\projects\PLN_Ticketing_PostgreSQL_Laragon"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\JALANKAN-TICKETING.ps1
+
+Bypass berlaku pada proses ini, bukan perubahan kebijakan permanen.
+Ikuti kebijakan IT; launcher tidak dapat mengesampingkan pembatasan perusahaan.
+
+GANTI KONFIGURASI / PORT / PASSWORD DATABASE
+Klik UBAH-KONFIGURASI.bat, lalu jalankan MULAI-PLN-TICKETING.bat kembali.
+Konfigurasi lama dicadangkan di .config-backups. Jaga folder itu seperti password.
+Database dan akun lama tidak dihapus/reset.
+
+DATABASE POSTGRESQL LOKAL DI LARAGON
+Tambahkan PostgreSQL melalui Tools > Quick add > PostgreSQL, kemudian jalankan
+service PostgreSQL dari Laragon. Siapkan database/role melalui DBA atau psql.
+Saat konfigurasi pilih Local (host 127.0.0.1, port sesuai Laragon).
+Mode Local tidak terhubung ke database kantor; data lokal dan kantor TIDAK tersinkron otomatis.
+
+BILA BELUM BERHASIL
+- SSH timeout: jaringan/VPN, IP, port SSH atau aturan IT belum sesuai; bukan salah SQL.
+- Port 15432 dipakai: tutup tunnel manual/launcher lama, atau pilih port lain melalui Configure.
+- Database belum ada: minta DBA membuatnya; lihat database\PERSIAPAN_DBA.psql.
+- Password database ditolak: ubah konfigurasi dengan akun PostgreSQL yang benar.
+- npm gagal mengunduh: akses registry/proxy kantor diperlukan; jangan mematikan validasi TLS.
+- Node tidak ditemukan di Laragon portable: gunakan parameter -LaragonRoot, lihat README.md.
+- Data lama belum muncul: ZIP sumber tidak berisi database operasional lama.
+  Jangan hapus database/penyimpanan browser lama. Lihat MIGRASI_DATA_LAMA.md.
+
+BATAS PENTING
+Paket ini menjalankan aplikasi di komputer Windows Anda, dengan PostgreSQL di server
+melalui SSH. Ini BUKAN instalasi aplikasi pada server atau URL publik untuk semua pengguna.
+Server kantor tidak diakses dalam penyusunan paket. Build Windows, SSH dan PostgreSQL
+nyata harus lulus di komputer Anda; launcher tidak menyatakan sukses jika langkah wajib gagal.
+Tidak ada jaminan bebas revisi untuk seluruh konfigurasi jaringan/OS yang belum diuji.
+Lihat HASIL_PENGUJIAN.md untuk hasil aktual dan batas pengujian.
+
+JANGAN kirim .env, password, private key, atau isi database pegawai ke chat.

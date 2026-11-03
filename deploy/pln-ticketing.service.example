@@ -1,0 +1,22 @@
+# TEMPLATE ONLY. IT must review paths, Node location, account and permissions.
+[Unit]
+Description=PLN Ticketing PostgreSQL API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ticketing
+Group=ticketing
+WorkingDirectory=/opt/pln-ticketing/current
+# The app reads .env in WorkingDirectory. Set NODE_ENV=production there.
+ExecStart=/usr/bin/node server/index.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,3 @@
+# Defense in depth only. Keep this source directory OUTSIDE any web document root.
+# Access the Node application on its configured port, never through an Apache file listing.
+Require all denied

@@ -1,0 +1,16 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import dotenv from 'dotenv';
+import {saveSetup} from '../save-setup.js';
+import {readLaunchSettings} from '../launch-config.js';
+const input={profile:{mode:'Tunnel'},database:{host:'127.0.0.1',port:15432,database:'pln_ticketing',user:'ticketing_app',password:'test-password-!#',ssl:false}};
+async function temp(fn){const dir=await fs.mkdtemp(path.join(os.tmpdir(),'ticketing-save-'));try{await fn(dir);}finally{await fs.rm(dir,{recursive:true,force:true});}}
+test('first setup writes matching environment and nonsecret profile',()=>temp(async dir=>{await saveSetup(dir,input);const settings=await readLaunchSettings(dir);assert.equal(settings.database.port,15432);assert.equal(JSON.stringify(settings).includes(input.database.password),false);assert.equal((await fs.readFile(path.join(dir,'.connection.json'),'utf8')).includes('password'),false);}));
+test('running setup twice cannot silently change credentials',()=>temp(async dir=>{await saveSetup(dir,input);const before=await fs.readFile(path.join(dir,'.env'),'utf8');await assert.rejects(saveSetup(dir,{...input,database:{...input.database,password:'replacement'}}));assert.equal(await fs.readFile(path.join(dir,'.env'),'utf8'),before);}));
+test('explicit reconfiguration backs up old settings and preserves the session signing secret',()=>temp(async dir=>{await saveSetup(dir,input);const old=dotenv.parse(await fs.readFile(path.join(dir,'.env')));await saveSetup(dir,{...input,database:{...input.database,password:'new-password'}},{replace:true});const current=dotenv.parse(await fs.readFile(path.join(dir,'.env')));assert.equal(current.SESSION_SECRET,old.SESSION_SECRET);assert.notEqual(current.DATABASE_URL,old.DATABASE_URL);const backups=await fs.readdir(path.join(dir,'.config-backups'));assert.equal(backups.length,1);assert.equal(dotenv.parse(await fs.readFile(path.join(dir,'.config-backups',backups[0],'.env'))).DATABASE_URL,old.DATABASE_URL);}));
+test('invalid replacement never destroys a working configuration',()=>temp(async dir=>{await saveSetup(dir,input);const before=await fs.readFile(path.join(dir,'.env'),'utf8');await assert.rejects(saveSetup(dir,{...input,database:{...input.database,port:5432}},{replace:true}));assert.equal(await fs.readFile(path.join(dir,'.env'),'utf8'),before);}));
+test('changing the target database revokes the old signed-cookie secret',()=>temp(async dir=>{await saveSetup(dir,input);const old=dotenv.parse(await fs.readFile(path.join(dir,'.env')));await saveSetup(dir,{...input,database:{...input.database,database:'another_ticketing'}},{replace:true});const current=dotenv.parse(await fs.readFile(path.join(dir,'.env')));assert.notEqual(current.SESSION_SECRET,old.SESSION_SECRET);}));
+test('successful reconfiguration requires setup again instead of trusting an old setup marker',()=>temp(async dir=>{await saveSetup(dir,input);await fs.writeFile(path.join(dir,'.setup-state.json'),'old readiness');await saveSetup(dir,{...input,database:{...input.database,password:'new-password'}},{replace:true});await assert.rejects(fs.access(path.join(dir,'.setup-state.json')));}));
