@@ -1,4 +1,5 @@
 import type { User } from '../types';
+import { apiFetch } from './http';
 
 async function readResponse(response: Response) {
   const body = await response.json().catch(() => ({}));
@@ -9,7 +10,7 @@ async function readResponse(response: Response) {
 }
 
 export async function getCurrentApiUser(): Promise<User | null> {
-  const response = await fetch('/api/auth/me', { headers: { Accept: 'application/json' } });
+  const response = await apiFetch('/api/auth/me', { headers: { Accept: 'application/json' } });
   if (response.status === 401) return null;
   const body = await readResponse(response);
   return body.user as User;
@@ -20,7 +21,7 @@ export async function signInWithApi(
   password: string
 ): Promise<{ user?: User; error?: string }> {
   try {
-    const response = await fetch('/api/auth/login', {
+    const response = await apiFetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ identifier: identifier.trim(), password }),
@@ -33,7 +34,7 @@ export async function signInWithApi(
 }
 
 export async function signOutFromApi(): Promise<void> {
-  const response = await fetch('/api/auth/logout', {
+  const response = await apiFetch('/api/auth/logout', {
     method: 'POST',
     headers: { Accept: 'application/json' },
   });

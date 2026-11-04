@@ -1,4 +1,5 @@
 import type { RegistrationRequest, Role, Unit, UnitRegion, UnitType } from '../types';
+import { apiFetch } from './http';
 
 interface RegistrationRow {
   id: string;
@@ -63,13 +64,13 @@ function toRegistrationRequest(row: RegistrationRow): RegistrationRequest {
 }
 
 export async function listRegistrationRequests(): Promise<RegistrationRequest[]> {
-  const response = await fetch('/api/registration_requests', { headers: { Accept: 'application/json' } });
+  const response = await apiFetch('/api/registration_requests', { headers: { Accept: 'application/json' } });
   const body = await readApiResponse(response);
   return (body.requests as RegistrationRow[]).map(toRegistrationRequest);
 }
 
 export async function listRegistrationUnits(): Promise<Unit[]> {
-  const response = await fetch('/api/units', { headers: { Accept: 'application/json' } });
+  const response = await apiFetch('/api/units', { headers: { Accept: 'application/json' } });
   const body = await readApiResponse(response);
   return (body.units as Array<Record<string, any>>).map((unit) => ({
     unitId: unit.legacy_key || unit.id,
@@ -89,7 +90,7 @@ export async function approveRegistration(
   role: Role,
   selectedUnitKey: string
 ): Promise<string> {
-  const response = await fetch(`/api/registration_requests/${encodeURIComponent(request.id)}/approve`, {
+  const response = await apiFetch(`/api/registration_requests/${encodeURIComponent(request.id)}/approve`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ role, unitKey: selectedUnitKey }),
@@ -99,7 +100,7 @@ export async function approveRegistration(
 }
 
 export async function rejectRegistration(requestId: string, reason: string): Promise<void> {
-  const response = await fetch(`/api/registration_requests/${encodeURIComponent(requestId)}/reject`, {
+  const response = await apiFetch(`/api/registration_requests/${encodeURIComponent(requestId)}/reject`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ reason }),

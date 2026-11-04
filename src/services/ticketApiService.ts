@@ -1,5 +1,5 @@
 import type { ActivityLog, Category, Comment, PriorityLevel, Progress, Ticket, TicketStatus, TicketType, Unit, UnitType, User } from '../types';
-import { notifyDataChanged } from './http';
+import { apiFetch, notifyDataChanged } from './http';
 import { canAccessUnitType } from '../utils/authPermissions';
 
 interface NewTicketInput {
@@ -108,20 +108,20 @@ function mapComment(row: Record<string, any>): Comment {
 }
 
 export async function listTickets(): Promise<Ticket[]> {
-  const response = await fetch('/api/tickets', { headers: { Accept: 'application/json' } });
+  const response = await apiFetch('/api/tickets', { headers: { Accept: 'application/json' } });
   const body = await readApiResponse(response);
   return (body.tickets as Array<Record<string, any>>).map(mapTicket);
 }
 
 export async function getTicket(ticketId: string): Promise<Ticket | null> {
-  const response = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}`, { headers: { Accept: 'application/json' } });
+  const response = await apiFetch(`/api/tickets/${encodeURIComponent(ticketId)}`, { headers: { Accept: 'application/json' } });
   if (response.status === 404) return null;
   const body = await readApiResponse(response);
   return mapTicket(body.ticket);
 }
 
 export async function createTicket(input: NewTicketInput): Promise<Ticket> {
-  const response = await fetch('/api/tickets', {
+  const response = await apiFetch('/api/tickets', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(input),
@@ -137,7 +137,7 @@ export async function updateTicketStatus(
   details?: string,
   options: { resolution?: string; rejectionReason?: string; priority?: PriorityLevel; priorityChangeReason?: string } = {}
 ): Promise<Ticket> {
-  const response = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/status`, {
+  const response = await apiFetch(`/api/tickets/${encodeURIComponent(ticketId)}/status`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ status, details, ...options }),
@@ -148,7 +148,7 @@ export async function updateTicketStatus(
 }
 
 export async function assignTicket(ticketId: string, picId: string, reason: string): Promise<Ticket> {
-  const response = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/assign`, {
+  const response = await apiFetch(`/api/tickets/${encodeURIComponent(ticketId)}/assign`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ picId, reason }),
@@ -159,7 +159,7 @@ export async function assignTicket(ticketId: string, picId: string, reason: stri
 }
 
 export async function listAssignablePics(ticketId: string): Promise<User[]> {
-  const response = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/assignable-pics`, { headers: { Accept: 'application/json' } });
+  const response = await apiFetch(`/api/tickets/${encodeURIComponent(ticketId)}/assignable-pics`, { headers: { Accept: 'application/json' } });
   const body = await readApiResponse(response);
   return (body.users as Array<Record<string, any>>).map((user) => ({
     uid: user.id,
@@ -178,7 +178,7 @@ export async function listAssignablePics(ticketId: string): Promise<User[]> {
 }
 
 export async function addTicketComment(input: { ticketId: string; authorId: string; message: string; visibility: 'public' | 'internal' }): Promise<Comment> {
-  const response = await fetch(`/api/tickets/${encodeURIComponent(input.ticketId)}/comments`, {
+  const response = await apiFetch(`/api/tickets/${encodeURIComponent(input.ticketId)}/comments`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ message: input.message, visibility: input.visibility }),
@@ -189,7 +189,7 @@ export async function addTicketComment(input: { ticketId: string; authorId: stri
 }
 
 export async function listTicketComments(ticketId: string): Promise<Comment[]> {
-  const response = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/comments`, { headers: { Accept: 'application/json' } });
+  const response = await apiFetch(`/api/tickets/${encodeURIComponent(ticketId)}/comments`, { headers: { Accept: 'application/json' } });
   const body = await readApiResponse(response);
   return (body.comments as Array<Record<string, any>>).map(mapComment);
 }
@@ -202,7 +202,7 @@ export async function addTicketProgress(input: {
   statusAfter: TicketStatus;
   visibility: 'public' | 'internal';
 }): Promise<Progress> {
-  const response = await fetch(`/api/tickets/${encodeURIComponent(input.ticketId)}/progress`, {
+  const response = await apiFetch(`/api/tickets/${encodeURIComponent(input.ticketId)}/progress`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ message: input.message, visibility: input.visibility }),
@@ -214,13 +214,13 @@ export async function addTicketProgress(input: {
 }
 
 export async function listTicketProgress(ticketId: string): Promise<Progress[]> {
-  const response = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/progress`, { headers: { Accept: 'application/json' } });
+  const response = await apiFetch(`/api/tickets/${encodeURIComponent(ticketId)}/progress`, { headers: { Accept: 'application/json' } });
   const body = await readApiResponse(response);
   return (body.progresses as Array<Record<string, any>>).map((entry) => ({ ...mapComment(entry), statusBefore: undefined, statusAfter: undefined }));
 }
 
 export async function listTicketActivity(ticketId: string): Promise<ActivityLog[]> {
-  const response = await fetch(`/api/tickets/${encodeURIComponent(ticketId)}/activity`, { headers: { Accept: 'application/json' } });
+  const response = await apiFetch(`/api/tickets/${encodeURIComponent(ticketId)}/activity`, { headers: { Accept: 'application/json' } });
   const body = await readApiResponse(response);
   return (body.activity as Array<Record<string, any>>).map((entry) => ({
     id: entry.id,
@@ -247,7 +247,7 @@ export async function uploadTicketAttachment(ticket: Ticket, _userId: string, fi
   for (let offset = 0; offset < bytes.length; offset += chunkSize) {
     binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
   }
-  const response = await fetch(`/api/tickets/${encodeURIComponent(ticket.id)}/attachments`, {
+  const response = await apiFetch(`/api/tickets/${encodeURIComponent(ticket.id)}/attachments`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ fileName: file.name, contentType: file.type, dataBase64: btoa(binary) }),
@@ -256,7 +256,7 @@ export async function uploadTicketAttachment(ticket: Ticket, _userId: string, fi
 }
 
 export async function listCategories(): Promise<Category[]> {
-  const response = await fetch('/api/ticket_categories', { headers: { Accept: 'application/json' } });
+  const response = await apiFetch('/api/ticket_categories', { headers: { Accept: 'application/json' } });
   const body = await readApiResponse(response);
   return (body.categories as Array<Record<string, any>>).map((row) => ({
     id: row.legacy_key || row.id,
@@ -281,7 +281,7 @@ export async function listTicketsByUnitType(
     return { authorized: false, unit: null, units: [], tickets: [], error: 'Akses ke kelompok unit ini tidak diizinkan.' };
   }
   const [unitResponse, tickets] = await Promise.all([
-    fetch('/api/units', { headers: { Accept: 'application/json' } }).then(readApiResponse),
+    apiFetch('/api/units', { headers: { Accept: 'application/json' } }).then(readApiResponse),
     listTickets(),
   ]);
   const units: Unit[] = (unitResponse.units as Array<Record<string, any>>)

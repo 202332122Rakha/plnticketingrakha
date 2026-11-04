@@ -19,6 +19,7 @@ import {
   Info,
 } from 'lucide-react';
 import { RegistrationRequest, Unit, UnitRegion } from '../types';
+import { apiFetch } from '../services/http';
 
 interface RegisterViewProps {
   onNavigateToLogin: () => void;
@@ -51,7 +52,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onNavigateToLogin })
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/units', { headers: { Accept: 'application/json' } })
+    apiFetch('/api/units', { headers: { Accept: 'application/json' } })
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok || !data.success) {
@@ -203,7 +204,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onNavigateToLogin })
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await apiFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
