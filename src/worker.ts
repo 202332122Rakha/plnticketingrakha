@@ -1,20 +1,24 @@
 /**
- * Cloudflare Worker Reverse Proxy for PLN Ticketing
+ * Cloudflare Worker for PLN Ticketing
  * 
- * Routes incoming requests:
- * - /api/* -> Proxied to backend Node.js (via BACKEND_ORIGIN / Cloudflare Tunnel / Cloudflare Access)
- * - /*     -> Static assets from Vite build (dist/)
+ * Standalone Mode:
+ * - If BACKEND_ORIGIN is set: Proxies /api/* to the specified backend URL
+ * - If BACKEND_ORIGIN is empty: Serves full mock API directly inside Cloudflare Workers
+ *   (No PostgreSQL, no backend server needed! Login, Units, Tickets all work instantly)
+ * - /*: Serves static assets from dist/
  */
+
+import { handleMockApi } from './mockApiHandler';
 
 export interface Env {
   ASSETS: {
     fetch: (request: Request | string) => Promise<Response>;
   };
-  BACKEND_ORIGIN?: string; // e.g. "https://api-ticketing.domain-anda.com" or tunnel URL
+  BACKEND_ORIGIN?: string;
 }
 
 export default {
-  async fetch(request: Request, env: Env, ctx?: any): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx?: any): Promise<Response> {
     const url = new URL(request.url);
 
     // 1. Handle Preflight OPTIONS for /api/*
@@ -31,69 +35,56 @@ export default {
       });
     }
 
-    // 2. Handle API endpoints
+    // 2. Handle /api/* endpoints
     if (url.pathname.startsWith('/api/')) {
       const backendOrigin = (env.BACKEND_ORIGIN || '').replace(/\/$/, '');
 
-      if (!backendOrigin) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'Konfigurasi BACKEND_ORIGIN belum diatur pada Cloudflare Worker Secrets/Variables.',
-            hint: 'Set BACKEND_ORIGIN via wrangler secret put BACKEND_ORIGIN atau di Dashboard Cloudflare Workers.',
-          }),
-          {
-            status: 502,
-            headers: {
-              'Content-Type': 'application/json; charset=utf-8',
-              'Cache-Control': 'no-store',
-            },
-          }
-        );
+      // Jika ada BACKEND_ORIGIN, teruskan ke server backend
+      if (backendOrigin) {
+        const targetUrl = new URL(url.pathname + url.search, backendOrigin);
+        const newHeaders = new Headers(request.headers);
+        newHeaders.set('X-Forwarded-Host', url.host);
+        newHeaders.set('X-Forwarded-Proto', url.protocol.replace(':', ''));
+        newHeaders.set('Host', targetUrl.host);
+
+        try {
+          const response = await fetch(targetUrl.toString(), {
+            method: request.method,
+            headers: newHeaders,
+            body: ['GET', 'HEAD'].includes(request.method) ? undefined : request.body,
+            redirect: 'manual',
+          });
+          const responseHeaders = new Headers(response.headers);
+          responseHeaders.set('Cache-Control', 'no-store');
+          return new Response(response.body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: responseHeaders,
+          });
+        } catch {
+          // Fallback to standalone mode if backend unreachable
+        }
       }
 
-      // Proxy request to backend
-      const targetUrl = new URL(url.pathname + url.search, backendOrigin);
-      
-      const newHeaders = new Headers(request.headers);
-      newHeaders.set('X-Forwarded-Host', url.host);
-      newHeaders.set('X-Forwarded-Proto', url.protocol.replace(':', ''));
-      newHeaders.set('Host', targetUrl.host);
-
-      try {
-        const response = await fetch(targetUrl.toString(), {
-          method: request.method,
-          headers: newHeaders,
-          body: ['GET', 'HEAD'].includes(request.method) ? undefined : request.body,
-          redirect: 'manual',
-        });
-
-        // Copy response headers and preserve cookies
-        const responseHeaders = new Headers(response.headers);
-        // Ensure same-origin browser context receives cookies properly
-        responseHeaders.set('Cache-Control', 'no-store');
-
-        return new Response(response.body, {
-          status: response.status,
-          statusText: response.statusText,
-          headers: responseHeaders,
-        });
-      } catch (err: any) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'Gagal menghubungi backend API PLN Ticketing.',
-            error: err?.message || 'Upstream connection failed',
-          }),
-          {
-            status: 502,
-            headers: {
-              'Content-Type': 'application/json; charset=utf-8',
-              'Cache-Control': 'no-store',
-            },
-          }
-        );
+      // Mode Standalone: Eksekusi API langsung di dalam Worker (Tanpa Backend/DB)
+      let parsedBody: any = null;
+      if (!['GET', 'HEAD'].includes(request.method)) {
+        try {
+          parsedBody = await request.clone().json();
+        } catch {
+          parsedBody = null;
+        }
       }
+
+      const mockResponse = handleMockApi(url.pathname, request.method, parsedBody);
+      if (mockResponse) {
+        return mockResponse;
+      }
+
+      return new Response(
+        JSON.stringify({ success: false, message: 'Endpoint tidak ditemukan.' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     // 3. Static assets served by Cloudflare Workers Assets
